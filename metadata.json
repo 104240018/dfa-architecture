@@ -1,0 +1,5 @@
+{
+  "name": "DFA Architect",
+  "description": "An interactive DFA simulation application where invalid input is impossible by construction.",
+  "requestFramePermissions": []
+}
