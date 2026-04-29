@@ -16,7 +16,16 @@ import {
   Info,
   Plus,
   Minus,
-  CircleDot
+  Moon,
+  Sun,
+  Maximize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelBottomClose,
+  PanelBottomOpen,
+  ChevronDown,
+  ChevronUp,
+  Cpu
 } from 'lucide-react';
 import * as d3 from 'd3';
 
@@ -38,10 +47,178 @@ const ALPHABET_CHARS = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
 // --- Components ---
 
+// --- Sub-components ---
+
+interface SimulationControlsProps {
+  variant: 'panel' | 'floating';
+  inputString: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleStepClick: () => Promise<void>;
+  startStepDisabled: boolean;
+  currentSimIndex: number;
+  runFullSimulation: () => void;
+  runDisabled: boolean;
+  resetSimulation: () => void;
+  stepMode: 'manual' | 'auto';
+  setStepMode: (mode: 'manual' | 'auto') => void;
+  autoStepSeconds: number;
+  setAutoStepSeconds: (val: number) => void;
+  isAccepted: boolean;
+  simComplete: boolean;
+}
+
+const SimulationControls = ({ 
+  variant,
+  inputString,
+  handleInputChange,
+  handleStepClick,
+  startStepDisabled,
+  currentSimIndex,
+  runFullSimulation,
+  runDisabled,
+  resetSimulation,
+  stepMode,
+  setStepMode,
+  autoStepSeconds,
+  setAutoStepSeconds,
+  isAccepted,
+  simComplete
+}: SimulationControlsProps) => {
+  const isFloating = variant === 'floating';
+  
+  return (
+    <div className={`${isFloating ? 'p-4 space-y-3' : 'space-y-4'}`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className={`relative flex-1 ${isFloating ? 'max-w-[200px]' : 'max-w-md'}`}>
+          <input 
+            type="text"
+            value={inputString}
+            onChange={handleInputChange}
+            placeholder="Input string..."
+            className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
+          />
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => void handleStepClick()}
+            disabled={startStepDisabled}
+            className="flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white font-bold rounded-lg transition-all text-xs shadow-lg shadow-blue-500/20 whitespace-nowrap"
+          >
+            {currentSimIndex === -1 ? 'Start' : 'Step'}
+          </button>
+          <button 
+            onClick={runFullSimulation}
+            disabled={runDisabled}
+            className="h-10 px-4 border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:border-gray-400 disabled:text-gray-400 font-bold rounded-lg transition-all text-xs"
+          >
+            Run
+          </button>
+          <button 
+            onClick={resetSimulation}
+            className="h-10 px-4 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-bold rounded-lg transition-all text-xs"
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 ml-auto bg-gray-50 dark:bg-gray-900 p-1 rounded-lg transition-colors duration-300">
+          <button 
+            onClick={() => setStepMode('manual')}
+            className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${stepMode === 'manual' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+          >
+            Manual
+          </button>
+          <button 
+            onClick={() => setStepMode('auto')}
+            className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${stepMode === 'auto' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+          >
+            Auto
+          </button>
+        </div>
+
+        {stepMode === 'auto' && (
+          <div className="flex items-center gap-2 ml-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              Delay
+            </span>
+            <input
+              type="number"
+              min="0.2"
+              step="0.1"
+              value={autoStepSeconds}
+              onChange={(e) => setAutoStepSeconds(Math.max(0.2, Number(e.target.value)))}
+              className="w-16 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
+            />
+            <span className="text-[10px] text-gray-400">s</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        {/* String Visualizer */}
+        <div className="flex-1 flex gap-1 font-mono overflow-x-auto pb-2 scrollbar-hide">
+          {inputString.split('').map((char, i) => (
+            <div 
+              key={i}
+              className={`w-8 h-10 flex items-center justify-center rounded border-b-2 text-base transition-all shrink-0 ${
+                i === currentSimIndex ? 'bg-blue-600 text-white border-blue-800 scale-110 shadow-lg' : 
+                i < currentSimIndex ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700' : 
+                'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-100 dark:border-gray-800'
+              }`}
+            >
+              {char}
+            </div>
+          ))}
+          {inputString.length === 0 && <span className="text-gray-400 dark:text-gray-500 text-xs italic">Enter a string to test</span>}
+        </div>
+
+        {/* Status */}
+        <div className={`min-w-[120px] h-12 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 transition-colors duration-300 ${isFloating ? 'bg-white/50 dark:bg-gray-950/50' : ''}`}>
+          {simComplete ? (
+            isAccepted ? (
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">
+                <CheckCircle2 size={16} /> ACCEPT
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-widest">
+                <XCircle size={16} /> REJECT
+              </div>
+            )
+          ) : (
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+              {currentSimIndex === -1 ? 'Ready' : `Step ${currentSimIndex + 1}/${inputString.length}`}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   // --- State ---
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+    }
+    return 'light';
+  });
+
+  // Dark Mode Sync
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isBottomCollapsed, setIsBottomCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'transitions' | 'simulation'>('transitions');
   const [numStates, setNumStates] = useState(3);
-  const [alphabetSize, setAlphabetSize] = useState(2);
+  const [alphabetInput, setAlphabetInput] = useState('a b');
   const [transitions, setTransitions] = useState<Transitions>({});
   const [startState, setStartState] = useState('q0');
   const [acceptStates, setAcceptStates] = useState<Set<string>>(new Set(['q1']));
@@ -59,6 +236,139 @@ export default function App() {
   const [arrivalState, setArrivalState] = useState<string | null>(null);
   const [isStepAnimating, setIsStepAnimating] = useState(false);
 
+  // --- Floating Panel State ---
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 });
+  const [panelSize, setPanelSize] = useState({ width: 500, height: 260 });
+  const [panelInitialized, setPanelInitialized] = useState(false);
+  
+  const dragStartRef = useRef({ x: 0, y: 0, panelX: 0, panelY: 0 });
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Initialize Floating Panel Position
+  useEffect(() => {
+    if (panelInitialized || !containerRef.current) return;
+    
+    // Use an observer to catch the container size as soon as it's available
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        const { width, height } = entries[0].contentRect;
+        if (width > 0 && height > 0) {
+          setPanelPos({ 
+            x: width - panelSize.width - 24, 
+            y: height - panelSize.height - 24 
+          });
+          setPanelInitialized(true);
+          observer.disconnect();
+        }
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [panelInitialized, panelSize.width, panelSize.height]);
+
+  // Handle Drag Move & End
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMove = (e: PointerEvent) => {
+      if (!containerRef.current) return;
+
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+
+      const { width, height } = containerRef.current.getBoundingClientRect();
+
+      const newX = dragStartRef.current.panelX + dx;
+      const newY = dragStartRef.current.panelY + dy;
+
+      setPanelPos({
+        x: Math.max(0, Math.min(newX, width - panelSize.width)),
+        y: Math.max(0, Math.min(newY, height - panelSize.height))
+      });
+    };
+
+    const handleUp = () => {
+      setIsDragging(false);
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
+    };
+  }, [isDragging, panelSize]);
+
+  // Handle Resize Move & End
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMove = (e: PointerEvent) => {
+      if (!containerRef.current) return;
+      const dx = e.clientX - resizeStartRef.current.x;
+      const dy = e.clientY - resizeStartRef.current.y;
+      
+      const { width: containerW, height: containerH } = containerRef.current.getBoundingClientRect();
+      const newWidth = Math.max(320, resizeStartRef.current.width + dx);
+      const newHeight = Math.max(180, resizeStartRef.current.height + dy);
+      
+      setPanelSize({ 
+        width: Math.min(newWidth, containerW - panelPos.x), 
+        height: Math.min(newHeight, containerH - panelPos.y) 
+      });
+    };
+
+    const handleUp = () => setIsResizing(false);
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
+    
+    // Prevent text selection while resizing
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, panelPos.x, panelPos.y]);
+
+  const handleDragStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(true);
+    dragStartRef.current = { 
+      x: e.clientX, 
+      y: e.clientY, 
+      panelX: panelPos.x, 
+      panelY: panelPos.y 
+    };
+    
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: panelSize.width,
+      height: panelSize.height
+    };
+  };
+
   const simStateRef = useRef(simState);
   const currentSimIndexRef = useRef(currentSimIndex);
   const stepAnimLockRef = useRef(false);
@@ -70,27 +380,29 @@ export default function App() {
     Array.from({ length: numStates }, (_, i) => `q${i}`), 
   [numStates]);
 
-  const alphabet = useMemo(() => 
-    ALPHABET_CHARS.slice(0, alphabetSize), 
-  [alphabetSize]);
+  const alphabet = useMemo(() => {
+    const raw = alphabetInput.split(/[\s,]+/).map(s => s.trim()).filter(s => s.length === 1);
+    return Array.from(new Set(raw)).slice(0, MAX_ALPHABET);
+  }, [alphabetInput]);
+
+  const handleTransitionsSync = useCallback((prev: Transitions, currentStates: string[], currentAlphabet: string[]) => {
+    const next: Transitions = {};
+    currentStates.forEach(s => {
+      next[s] = {};
+      currentAlphabet.forEach(char => {
+        if (prev[s] && prev[s][char] && currentStates.includes(prev[s][char])) {
+          next[s][char] = prev[s][char];
+        } else {
+          next[s][char] = currentStates[0];
+        }
+      });
+    });
+    return next;
+  }, []);
 
   // Initialize/Sync transitions when states or alphabet change
   useEffect(() => {
-    setTransitions(prev => {
-      const next: Transitions = {};
-      states.forEach(s => {
-        next[s] = {};
-        alphabet.forEach(char => {
-          // Keep existing if valid, else default to q0
-          if (prev[s] && prev[s][char] && states.includes(prev[s][char])) {
-            next[s][char] = prev[s][char];
-          } else {
-            next[s][char] = states[0];
-          }
-        });
-      });
-      return next;
-    });
+    setTransitions(prev => handleTransitionsSync(prev, states, alphabet));
 
     // Sync start state
     if (!states.includes(startState)) {
@@ -105,7 +417,7 @@ export default function App() {
       });
       return next;
     });
-  }, [states, alphabet]);
+  }, [states, alphabet, handleTransitionsSync]);
 
   // --- Handlers ---
 
@@ -238,8 +550,8 @@ export default function App() {
   ]);
 
   const isAccepted = currentSimIndex === inputString.length && simState !== null && acceptStates.has(simState);
-
   const simComplete = currentSimIndex >= inputString.length && currentSimIndex !== -1;
+
   const startStepDisabled =
     isStepAnimating ||
     simComplete ||
@@ -249,60 +561,83 @@ export default function App() {
 
   // --- Visualization ---
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const simulationRef = useRef<d3.Simulation<any, any> | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const graphReadyRef = useRef(false);
 
+  interface D3Node extends d3.SimulationNodeDatum {
+    id: string;
+  }
+
+  interface D3Link extends d3.SimulationLinkDatum<D3Node> {
+    source: D3Node;
+    target: D3Node;
+    /** Comma-separated symbols for display (e.g. "a,b") */
+    label: string;
+    /** Symbols on this edge — used to highlight the correct transition */
+    chars: string[];
+  }
+
+  const NODE_R = 20;
+  const SELF_LOOP_H = 44;
+  const SELF_LOOP_W = 40;
+
+  // Effect A: Initialize Graph & Layout (Structural Changes)
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !containerRef.current) return;
+    graphReadyRef.current = false;
 
-    const width = 600;
-    const height = 400;
+    const { width, height } = containerRef.current.getBoundingClientRect();
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    
+    // Clear layers but keep defs/markers
+    svg.selectAll("g.root-container").remove();
+    
+    const root = svg.append("g").attr("class", "root-container");
 
-    const defs = svg.append("defs");
-    const glowFilter = defs.append("filter").attr("id", "edge-glow").attr("x", "-40%").attr("y", "-40%").attr("width", "180%").attr("height", "180%");
-    glowFilter.append("feGaussianBlur").attr("stdDeviation", 2.5).attr("result", "blur");
-    const feMerge = glowFilter.append("feMerge");
-    feMerge.append("feMergeNode").attr("in", "blur");
-    feMerge.append("feMergeNode").attr("in", "SourceGraphic");
-    defs.append("marker")
-      .attr("id", "arrowhead")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 25)
-      .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#666");
-    defs.append("marker")
-      .attr("id", "arrowhead-active")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 25)
-      .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#ca8a04");
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on("zoom", (event) => {
+        root.attr("transform", event.transform);
+      });
 
-    interface D3Node extends d3.SimulationNodeDatum {
-      id: string;
+    svg.call(zoom);
+    zoomRef.current = zoom;
+
+    // Ensure defs exist
+    let defs = svg.select("defs");
+    if (defs.empty()) {
+      defs = svg.append("defs");
+      const glowFilter = defs.append("filter").attr("id", "edge-glow").attr("x", "-40%").attr("y", "-40%").attr("width", "180%").attr("height", "180%");
+      glowFilter.append("feGaussianBlur").attr("stdDeviation", 2.5).attr("result", "blur");
+      const feMerge = glowFilter.append("feMerge");
+      feMerge.append("feMergeNode").attr("in", "blur");
+      feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+      
+      defs.append("marker")
+        .attr("id", "arrowhead")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 10)
+        .attr("refY", 0)
+        .attr("markerWidth", 10)
+        .attr("markerHeight", 10)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5");
+
+      defs.append("marker")
+        .attr("id", "arrowhead-active")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 10)
+        .attr("refY", 0)
+        .attr("markerWidth", 10)
+        .attr("markerHeight", 10)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#f59e0b");
     }
-
-    interface D3Link extends d3.SimulationLinkDatum<D3Node> {
-      source: D3Node;
-      target: D3Node;
-      /** Comma-separated symbols for display (e.g. "a,b") */
-      label: string;
-      /** Symbols on this edge — used to highlight the correct transition */
-      chars: string[];
-    }
-
-    const NODE_R = 20;
-    const SELF_LOOP_H = 44;
-    const SELF_LOOP_W = 40;
 
     const nodes: D3Node[] = states.map(id => ({ id }));
     const links: D3Link[] = [];
@@ -314,7 +649,9 @@ export default function App() {
         if (toId) {
           const key = `${from}\0${toId}`;
           if (!edgeGroups.has(key)) edgeGroups.set(key, []);
-          edgeGroups.get(key)!.push(char);
+          if (!edgeGroups.get(key)!.includes(char)) {
+            edgeGroups.get(key)!.push(char);
+          }
         }
       });
     });
@@ -337,100 +674,73 @@ export default function App() {
 
     const simulation = d3.forceSimulation<D3Node>(nodes)
       .force("link", d3.forceLink<D3Node, D3Link>(links).id(d => d.id).distance(150))
-      .force("charge", d3.forceManyBody().strength(-500))
+      .force("charge", d3.forceManyBody().strength(-800))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(50));
+      .force("collision", d3.forceCollide().radius(60));
+    
+    simulationRef.current = simulation;
 
-    const link = svg.append("g")
+    const link = root.append("g")
+      .attr("class", "links-layer")
       .selectAll<SVGPathElement, D3Link>("path")
       .data(links)
       .enter().append("path")
+      .attr("class", "transition-path")
       .attr("fill", "none")
-      .attr("stroke", "#999")
       .attr("stroke-width", 1.5)
-      .attr("marker-end", "url(#arrowhead)")
-      .attr("filter", "none");
+      .attr("marker-end", "url(#arrowhead)");
 
-    const linkLabel = svg.append("g")
+    const linkLabel = root.append("g")
+      .attr("class", "labels-layer")
       .selectAll<SVGTextElement, D3Link>("text")
       .data(links)
       .enter().append("text")
+      .attr("class", "transition-label")
       .attr("font-size", "12px")
-      .attr("fill", "#666")
       .attr("font-weight", "600")
       .attr("text-anchor", "middle")
       .text(d => d.label);
 
-    const isActiveLink = (d: D3Link) =>
-      !!activeEdge &&
-      d.source.id === activeEdge.from &&
-      d.target.id === activeEdge.to &&
-      d.chars.includes(activeEdge.char);
-
-    link.each(function (d) {
-      const active = isActiveLink(d);
-      d3.select(this)
-        .attr("stroke", active ? "#ca8a04" : "#999")
-        .attr("stroke-width", active ? 4 : 1.5)
-        .attr("marker-end", active ? "url(#arrowhead-active)" : "url(#arrowhead)")
-        .attr("filter", active ? "url(#edge-glow)" : "none")
-        .attr("opacity", active ? 1 : 0.85);
-    });
-
-    linkLabel.each(function (d) {
-      const active = isActiveLink(d);
-      d3.select(this)
-        .attr("fill", active ? "#a16207" : "#666")
-        .attr("font-size", active ? "13px" : "12px");
-    });
-
-    const node = svg.append("g")
+    const node = root.append("g")
+      .attr("class", "nodes-layer")
       .selectAll<SVGGElement, D3Node>("g")
       .data(nodes)
       .enter().append("g")
+      .attr("class", "state-node")
       .call(d3.drag<SVGGElement, D3Node>()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended));
-
-    const nodeFill = (id: string) => {
-      if (arrivalState === id) return "#22c55e";
-      if (simState === id && arrivalState === null) return "#3b82f6";
-      return "#fff";
-    };
-
-    const nodeLabelFill = (id: string) => {
-      if (arrivalState === id) return "#fff";
-      if (simState === id && arrivalState === null) return "#fff";
-      return "#333";
-    };
-
-    const innerStroke = (id: string) => {
-      if (arrivalState === id) return "#fff";
-      if (simState === id && arrivalState === null) return "#fff";
-      return "#333";
-    };
+        .on("start", (event, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on("end", (event, d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }));
 
     node.append("circle")
+      .attr("class", "main-circle border-circle")
       .attr("r", 20)
-      .attr("fill", d => nodeFill(d.id))
-      .attr("stroke", d => d.id === startState ? "#10b981" : "#333")
-      .attr("stroke-width", d => d.id === startState ? 3 : 1.5);
+      .attr("stroke-width", 2);
 
-    // Inner circle for accept states
-    node.filter(d => acceptStates.has(d.id))
-      .append("circle")
+    node.append("circle")
+      .attr("class", "accept-circle")
       .attr("r", 16)
       .attr("fill", "none")
-      .attr("stroke", d => innerStroke(d.id))
-      .attr("stroke-width", 1);
+      .attr("stroke-width", 1)
+      .attr("opacity", 0);
 
     node.append("text")
+      .attr("class", "state-label")
       .attr("dy", ".35em")
       .attr("text-anchor", "middle")
       .attr("font-size", "12px")
       .attr("font-weight", "bold")
-      .attr("fill", d => nodeLabelFill(d.id))
       .text(d => d.id);
 
     simulation.on("tick", () => {
@@ -439,456 +749,562 @@ export default function App() {
         const sy = d.source.y ?? 0;
         const tx = d.target.x ?? 0;
         const ty = d.target.y ?? 0;
-
         const dx = tx - sx;
         const dy = ty - sy;
-        const dr = Math.sqrt(dx * dx + dy * dy);
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
 
-        // Self-loop: symmetric cubic bulge above the node; label sits on the arc midpoint
-        if (d.source.id === d.target.id) {
-          const x0 = sx + NODE_R * 0.92;
-          const x1 = sx - NODE_R * 0.92;
-          return `M ${x0},${sy} C ${sx + SELF_LOOP_W},${sy - SELF_LOOP_H} ${sx - SELF_LOOP_W},${sy - SELF_LOOP_H} ${x1},${sy}`;
-        }
+        // move start/end away from node centers
+        const offset = NODE_R;
 
-        return `M${sx},${sy}A${dr},${dr} 0 0,1 ${tx},${ty}`;
-      });
+        const nx = dx / len;
+        const ny = dy / len;
+
+        const sx2 = sx + nx * offset;
+        const sy2 = sy + ny * offset;
+        const tx2 = tx - nx * offset;
+        const ty2 = ty - ny * offset;
+
+        const dr = len;
+
+      if (d.source.id === d.target.id) {
+        // Angle for the start and end of the loop (in radians)
+        // 30 degrees from the vertical top for a nice symmetrical loop
+        const angle = Math.PI / 6; 
+        
+        // Start point (top right shoulder)
+        const x0 = sx + NODE_R * Math.sin(angle);
+        const y0 = sy - NODE_R * Math.cos(angle);
+        
+        // End point (top left shoulder)
+        const x1 = sx - NODE_R * Math.sin(angle);
+        const y1 = sy - NODE_R * Math.cos(angle);
+
+        // We use the same SELF_LOOP_W/H but relative to the new start/end
+        return `M ${x0},${y0} 
+                C ${sx + SELF_LOOP_W},${sy - SELF_LOOP_H} 
+                  ${sx - SELF_LOOP_W},${sy - SELF_LOOP_H} 
+                  ${x1},${y1}`;
+      }
+      const shrink = 2; // tweak 1–4 for perfect touch
+
+      return `M${sx2},${sy2}A${dr},${dr} 0 0,1 
+              ${tx2 - nx * shrink},${ty2 - ny * shrink}`;
+            });
 
       linkLabel.attr("transform", d => {
         const sx = d.source.x ?? 0;
         const sy = d.source.y ?? 0;
         const tx = d.target.x ?? 0;
         const ty = d.target.y ?? 0;
-
         if (d.source.id === d.target.id) {
           const midY = sy - SELF_LOOP_H * 0.75;
           return `translate(${sx}, ${midY})`;
         }
-        const x = (sx + tx) / 2;
-        const y = (sy + ty) / 2;
+        const t = 0.5; // 0.5 = middle, 0.65 = closer to target node
+        const x = sx + (tx - sx) * t;
+        const y = sy + (ty - sy) * t;
         const rdx = tx - sx;
         const rdy = ty - sy;
         const len = Math.sqrt(rdx * rdx + rdy * rdy) || 1;
-        const nx = -rdy / len * 20;
-        const ny = rdx / len * 20;
+        const nx = -rdy / len * 10;
+        const ny = rdx / len * 10;
         return `translate(${x + nx}, ${y + ny})`;
       });
 
       node.attr("transform", d => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
     });
 
-    function dragstarted(event: d3.D3DragEvent<SVGGElement, D3Node, D3Node>, d: D3Node) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    }
+    graphReadyRef.current = true;
+    updateGraphStyles();
 
-    function dragged(event: d3.D3DragEvent<SVGGElement, D3Node, D3Node>, d: D3Node) {
-      d.fx = event.x;
-      d.fy = event.y;
-    }
+    return () => {
+      simulation.stop();
+      simulationRef.current = null;
+      graphReadyRef.current = false;
+    };
+  }, [states, alphabet, transitions, theme]);
 
-    function dragended(event: d3.D3DragEvent<SVGGElement, D3Node, D3Node>, d: D3Node) {
-      if (!event.active) simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
-    }
+  // Effect B: Visualization Updates (Styling & Simulation Progress)
+  const updateGraphStyles = useCallback(() => {
+    if (!svgRef.current || !graphReadyRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const isDark = theme === 'dark';
 
-    return () => simulation.stop();
-  }, [states, alphabet, transitions, startState, acceptStates, simState, activeEdge, arrivalState]);
+    const nodeFill = (id: string) => {
+      if (arrivalState === id) return isDark ? "#22c55e" : "#22c55e";
+      if (simState === id && arrivalState === null) return isDark ? "#3b82f6" : "#3b82f6";
+      return isDark ? "#1f2937" : "#fff";
+    };
+
+    const nodeLabelFill = (id: string) => {
+      if (arrivalState === id || (simState === id && arrivalState === null)) return "#fff";
+      return isDark ? "#f3f4f6" : "#333";
+    };
+
+    const innerStroke = (id: string) => {
+      if (arrivalState === id || (simState === id && arrivalState === null)) return "#fff";
+      return isDark ? "#9ca3af" : "#333";
+    };
+
+    const isActiveLink = (d: D3Link) =>
+      !!activeEdge &&
+      d.source.id === activeEdge.from &&
+      d.target.id === activeEdge.to &&
+      d.chars.includes(activeEdge.char);
+
+    // Update markers colors for theme
+    svg.select("#arrowhead path").attr("fill", isDark ? "#4b5563" : "#666");
+
+    // Update Nodes
+    svg.selectAll<SVGGElement, D3Node>(".state-node").each(function(d) {
+      const g = d3.select(this);
+      g.select(".main-circle")
+        .attr("fill", nodeFill(d.id))
+        .attr("stroke", d.id === startState ? "#10b981" : (isDark ? "#4b5563" : "#333"))
+        .attr("stroke-width", d.id === startState ? 3 : 1.5);
+      
+      const isAccept = acceptStates.has(d.id);
+      g.select(".accept-circle")
+        .attr("stroke", isAccept ? innerStroke(d.id) : "none")
+        .attr("opacity", isAccept ? 1 : 0);
+
+      g.select(".state-label")
+        .attr("fill", nodeLabelFill(d.id))
+        .text(d.id);
+    });
+
+    // Update Links
+    svg.selectAll<SVGPathElement, D3Link>(".transition-path").each(function(d) {
+      const active = isActiveLink(d);
+      d3.select(this)
+        .attr("stroke", active ? "#f59e0b" : (isDark ? "#4b5563" : "#999"))
+        .attr("stroke-width", active ? 4 : 1.5)
+        .attr("marker-end", active ? "url(#arrowhead-active)" : "url(#arrowhead)")
+        .attr("filter", active ? "url(#edge-glow)" : "none")
+        .attr("opacity", active ? 1 : (isDark ? 0.6 : 0.85));
+    });
+
+    svg.selectAll<SVGTextElement, D3Link>(".transition-label").each(function(d) {
+      const active = isActiveLink(d);
+      d3.select(this)
+        .attr("fill", active ? "#f59e0b" : (isDark ? "#9ca3af" : "#666"))
+        .attr("font-size", active ? "13px" : "12px");
+    });
+  }, [simState, activeEdge, arrivalState, startState, acceptStates, theme]);
+
+  const handleFitScreen = () => {
+    if (!svgRef.current || !containerRef.current || !zoomRef.current || !simulationRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    const nodes = simulationRef.current.nodes();
+    if (nodes.length === 0) return;
+
+    const xExtent = d3.extent(nodes, (d: any) => d.x) as [number, number];
+    const yExtent = d3.extent(nodes, (d: any) => d.y) as [number, number];
+    
+    const contentWidth = xExtent[1] - xExtent[0] + 100;
+    const contentHeight = yExtent[1] - yExtent[0] + 100;
+    
+    const midX = (xExtent[0] + xExtent[1]) / 2;
+    const midY = (yExtent[0] + yExtent[1]) / 2;
+    
+    const scale = 0.8 / Math.max(contentWidth / width, contentHeight / height);
+    
+    d3.select(svgRef.current).transition().duration(750).call(
+      zoomRef.current.transform,
+      d3.zoomIdentity.translate(width / 2, height / 2).scale(scale).translate(-midX, -midY)
+    );
+  };
+
+  useEffect(() => {
+    updateGraphStyles();
+    // Re-center and update forces when layout changes
+    if (simulationRef.current && containerRef.current) {
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      simulationRef.current.force("center", d3.forceCenter(width / 2, height / 2));
+      simulationRef.current.alpha(0.1).restart();
+    }
+  }, [theme, updateGraphStyles, isSidebarCollapsed, isBottomCollapsed]);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-blue-100">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-6 py-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              <CircleDot size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Automata Visualizer</h1>
-              <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">Step through your DFA</p>
-            </div>
+    <div className="h-screen flex flex-col font-sans selection:bg-blue-500/20 bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <header className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md px-4 flex items-center justify-between z-50 shadow-sm transition-colors duration-300">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+            <Cpu size={20} strokeWidth={2.5}/>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Valid Configuration
+          <div>
+            <h1 className="text-sm font-bold tracking-tight">Automata Lab</h1>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono uppercase tracking-widest leading-none">DFA Engine v1.0</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+            className="relative w-14 h-7 flex items-center rounded-full transition-colors duration-300 bg-gray-300 dark:bg-gray-700"
+          >
+            <div
+              className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center transition-all duration-300 ${
+                theme === 'dark' ? 'translate-x-7' : 'translate-x-0'
+              }`}
+            >
+              {theme === 'light' ? (
+                <Sun size={12} className="text-yellow-500" />
+              ) : (
+                <Moon size={12} className="text-gray-700" />
+              )}
             </div>
+          </button>
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-800 mx-2" />
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="hidden sm:inline">Engine Active</span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column: Configuration */}
-        <div className="lg:col-span-4 space-y-8">
-          
-          {/* 1. Basic Setup */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6">
-              <Settings size={18} className="text-blue-600" />
-              <h2 className="font-semibold">Machine Configuration</h2>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">
-                  Number of States (Q)
-                </label>
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={() => setNumStates(Math.max(1, numStates - 1))}
-                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="text-xl font-mono font-bold w-8 text-center">{numStates}</span>
-                  <button 
-                    onClick={() => setNumStates(Math.min(MAX_STATES, numStates + 1))}
-                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                  >
-                    <Plus size={16} />
-                  </button>
-                  <span className="text-xs text-gray-400 font-mono ml-auto">MAX: {MAX_STATES}</span>
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Left Sidebar */}
+        <motion.aside 
+          initial={false}
+          animate={{ width: isSidebarCollapsed ? 0 : 280 }}
+          className="border-r border-gray-200 dark:border-gray-800 overflow-hidden bg-gray-50/30 dark:bg-gray-900/40 shrink-0 relative transition-colors duration-300"
+        >
+          <div className="w-[280px] p-4 space-y-4 overflow-y-auto h-full">
+            {/* Machine Config */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Settings size={16} />
+                  <h2 className="text-xs font-bold uppercase tracking-wider">Configuration</h2>
                 </div>
               </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">
-                  Alphabet Size (Σ)
-                </label>
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={() => setAlphabetSize(Math.max(1, alphabetSize - 1))}
-                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="text-xl font-mono font-bold w-8 text-center">{alphabetSize}</span>
-                  <button 
-                    onClick={() => setAlphabetSize(Math.min(MAX_ALPHABET, alphabetSize + 1))}
-                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                  >
-                    <Plus size={16} />
-                  </button>
-                  <span className="text-xs text-gray-400 font-mono ml-auto">MAX: {MAX_ALPHABET}</span>
-                </div>
-                <div className="mt-2 flex gap-1">
-                  {alphabet.map(char => (
-                    <span key={char} className="px-2 py-1 bg-gray-100 rounded text-xs font-mono font-bold text-gray-600">
-                      {char}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 2. State Properties */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6">
-              <CheckCircle2 size={18} className="text-blue-600" />
-              <h2 className="font-semibold">State Properties</h2>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b border-gray-100">
-                    <th className="pb-3 font-medium text-gray-400 uppercase text-[10px] tracking-widest">State</th>
-                    <th className="pb-3 font-medium text-gray-400 uppercase text-[10px] tracking-widest text-center">Start</th>
-                    <th className="pb-3 font-medium text-gray-400 uppercase text-[10px] tracking-widest text-center">Accept</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {states.map(s => (
-                    <tr key={s} className="group">
-                      <td className="py-3 font-mono font-bold">{s}</td>
-                      <td className="py-3 text-center">
-                        <input 
-                          type="radio" 
-                          name="startState" 
-                          checked={startState === s}
-                          onChange={() => setStartState(s)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 text-center">
-                        <input 
-                          type="checkbox" 
-                          checked={acceptStates.has(s)}
-                          onChange={() => toggleAcceptState(s)}
-                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
-        {/* Right Column: Transitions & Simulation */}
-        <div className="lg:col-span-8 space-y-8">
-          
-          {/* 3. Transition Table */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6">
-              <TableIcon size={18} className="text-blue-600" />
-              <h2 className="font-semibold">Transition Function (δ)</h2>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="p-3 bg-gray-50 border border-gray-100 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      δ(q, σ)
-                    </th>
-                    {alphabet.map(char => (
-                      <th key={char} className="p-3 bg-gray-50 border border-gray-100 text-center font-mono font-bold text-blue-600">
-                        {char}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {states.map(s => (
-                    <tr key={s}>
-                      <td className="p-3 border border-gray-100 font-mono font-bold bg-gray-50/50">
-                        {s}
-                      </td>
-                      {alphabet.map(char => (
-                        <td key={char} className="p-2 border border-gray-100">
-                          <select
-                            value={transitions[s]?.[char] || states[0]}
-                            onChange={(e) => handleTransitionChange(s, char, e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                          >
-                            {states.map(target => (
-                              <option key={target} value={target}>{target}</option>
-                            ))}
-                          </select>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-4 text-[11px] text-gray-400 flex items-center gap-1.5 italic">
-              <Info size={12} />
-              Every cell is pre-populated with a valid state. No missing transitions possible.
-            </p>
-          </section>
-
-          {/* 4. Visualization & Simulation */}
-          <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <Play size={18} className="text-blue-600" />
-                <h2 className="font-semibold">Interactive Simulation</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={resetSimulation}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                  title="Reset Simulation"
-                >
-                  <RotateCcw size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Graph Area */}
-            <div className="relative bg-gray-50/50 h-[400px] overflow-hidden">
-              <svg 
-                ref={svgRef} 
-                className="w-full h-full cursor-grab active:cursor-grabbing"
-              />
               
-              {/* Legend */}
-              <div className="absolute bottom-4 left-4 flex flex-col gap-2 bg-white/80 backdrop-blur-sm p-3 rounded-xl border border-gray-200 text-[10px] font-bold uppercase tracking-wider text-gray-500 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full border-2 border-emerald-500" />
-                  Start State
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 rounded-full border border-gray-800" />
-                  </span>
-                  Accept State
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-blue-600" />
-                  Current State
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-0.5 bg-amber-500 rounded shadow-[0_0_6px_#fbbf24]" />
-                  Active Transition
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                  Arrival (next state)
-                </div>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div className="p-6 space-y-6 bg-white">
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                  Input String (Σ*)
-                </label>
-                <div className="flex flex-wrap gap-3 items-stretch">
-                  <input 
-                    type="text"
-                    value={inputString}
-                    onChange={handleInputChange}
-                    placeholder="Enter string (e.g. abba)"
-                    className="flex-1 min-w-[200px] bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-mono text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-300"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => void handleStepClick()}
-                    disabled={startStepDisabled}
-                    className="px-6 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-lg shadow-blue-200"
-                  >
-                    {currentSimIndex === -1 ? 'Start' : 'Step'}
-                    <ChevronRight size={18} />
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={runFullSimulation}
-                    disabled={runDisabled}
-                    className="px-6 border border-blue-600 text-blue-600 rounded-xl font-bold hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    Run
-                  </button>
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 pt-1">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0">
-                    Step playback
-                  </span>
-                  <div className="flex rounded-xl border border-gray-200 p-0.5 bg-gray-50/80">
-                    <button
-                      type="button"
-                      onClick={() => setStepMode('manual')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                        stepMode === 'manual'
-                          ? 'bg-white text-blue-700 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-4 shadow-sm transition-colors duration-300">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    States (Q)
+                  </label>
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-950 rounded-lg p-1 transition-colors duration-300">
+                    <button 
+                      onClick={() => setNumStates(Math.max(1, numStates - 1))}
+                      className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-900 transition-all text-gray-500"
                     >
-                      Manual (click each step)
+                      <Minus size={14} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setStepMode('auto')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                        stepMode === 'auto'
-                          ? 'bg-white text-blue-700 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
+                    <span className="text-sm font-mono font-bold">{numStates} states</span>
+                    <button 
+                      onClick={() => setNumStates(Math.min(MAX_STATES, numStates + 1))}
+                      className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-900 transition-all text-gray-500"
                     >
-                      Auto (timed steps)
+                      <Plus size={14} />
                     </button>
                   </div>
-                  {stepMode === 'auto' && (
-                    <div className="flex items-center gap-3 flex-1 min-w-[220px]">
-                      <label htmlFor="auto-step-delay" className="text-xs text-gray-500 whitespace-nowrap">
-                        Pause between steps
-                      </label>
-                      <input
-                        id="auto-step-delay"
-                        type="range"
-                        min={0.5}
-                        max={3}
-                        step={0.1}
-                        value={autoStepSeconds}
-                        onChange={(e) => setAutoStepSeconds(Number(e.target.value))}
-                        className="flex-1 h-2 accent-blue-600 cursor-pointer"
-                      />
-                      <span className="text-xs font-mono tabular-nums text-gray-600 w-14 text-right">
-                        {autoStepSeconds.toFixed(1)}s
-                      </span>
-                    </div>
-                  )}
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {alphabet.map(char => (
-                    <button
-                      key={char}
-                      onClick={() => setInputString(prev => prev + char)}
-                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-mono font-bold transition-colors"
-                    >
-                      +{char}
-                    </button>
-                  ))}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    Alphabet (Σ)
+                  </label>
+                  <input
+                    type="text"
+                    value={alphabetInput}
+                    onChange={(e) => setAlphabetInput(e.target.value)}
+                    placeholder="a b"
+                    className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-1.5 font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {alphabet.map(char => (
+                      <span key={char} className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-mono font-bold">
+                        {char}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
+            </section>
 
-              {/* Simulation Feedback */}
-              <AnimatePresence mode="wait">
-                {currentSimIndex !== -1 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-4 rounded-xl border flex items-center justify-between bg-gray-50 border-gray-100"
+            {/* State Properties */}
+            <section className="space-y-4 pt-2">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 size={16} />
+                <h2 className="text-xs font-bold uppercase tracking-wider">State Map</h2>
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm transition-colors duration-300">
+                <table className="w-full text-[11px]">
+                  <thead className="bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+                    <tr className="text-left border-b border-gray-100 dark:border-gray-700">
+                      <th className="px-3 py-2 text-gray-400 font-bold uppercase tracking-widest text-[9px]">State</th>
+                      <th className="px-2 py-2 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px]">S</th>
+                      <th className="px-2 py-2 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px]">A</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800 transition-colors duration-300">
+                    {states.map(s => (
+                      <tr key={s} className="hover:bg-gray-50/50 dark:hover:bg-gray-950/20 transition-colors duration-300">
+                        <td className="px-3 py-2 font-mono font-bold text-gray-600 dark:text-gray-300">{s}</td>
+                        <td className="px-2 py-2 text-center">
+                          <input 
+                            type="radio" 
+                            name="startState" 
+                            checked={startState === s}
+                            onChange={() => setStartState(s)}
+                            className="w-3 h-3 text-blue-600 dark:bg-gray-950 border-gray-300 dark:border-gray-600 focus:ring-0"
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={acceptStates.has(s)}
+                            onChange={() => toggleAcceptState(s)}
+                            className="w-3 h-3 text-emerald-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-950 focus:ring-0"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </motion.aside>
+
+        {/* Sidebar Toggle Handle */}
+        <button 
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 z-50 w-5 h-12 bg-white dark:bg-gray-900 border border-l-0 border-gray-200 dark:border-gray-800 rounded-r-lg flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all shadow-sm ${isSidebarCollapsed ? 'translate-x-0' : 'translate-x-[280px]'}`}
+        >
+          {isSidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+        </button>
+
+        {/* Main Canvas Area */}
+        <main className="flex-1 flex flex-col relative overflow-hidden transition-colors duration-300">
+          {/* Top Canvas Control Bar */}
+          <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
+             <button 
+                onClick={handleFitScreen}
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-white dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300"
+                title="Fit to Screen"
+              >
+                <Maximize2 size={16} />
+              </button>
+          </div>
+
+          <div ref={containerRef} className="flex-1 bg-gray-50 dark:bg-gray-950 relative overflow-hidden transition-colors duration-300">
+            <svg 
+              ref={svgRef} 
+              className="w-full h-full cursor-grab active:cursor-grabbing"
+            />
+            
+            {/* Floating Simulation Panel */}
+            <AnimatePresence>
+              {isBottomCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className={`absolute z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden flex flex-col ${(isDragging || isResizing) ? 'select-none' : ''}`}
+                  style={{
+                    width: panelSize.width,
+                    height: panelSize.height,
+                    left: panelPos.x,
+                    top: panelPos.y,
+                    touchAction: 'none'
+                  }}
+                >
+                  <div 
+                    onPointerDown={handleDragStart}
+                    className="px-4 py-2 bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between cursor-move select-none touch-none"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Progress</span>
-                        <div className="flex items-center font-mono text-lg">
-                          <span className="text-blue-600 font-bold">{inputString.slice(0, currentSimIndex)}</span>
-                          <span className="text-gray-300">{inputString.slice(currentSimIndex)}</span>
-                        </div>
-                      </div>
-                      <div className="w-px h-8 bg-gray-200 mx-2" />
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current State</span>
-                        <span className="font-mono font-bold text-lg">{simState}</span>
-                      </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      <Play size={10} className="text-blue-500" />
+                      Quick Simulation
                     </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsBottomCollapsed(false);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      onPointerDown={e => e.stopPropagation()}
+                    >
+                      <PanelBottomOpen size={14} />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    <SimulationControls 
+                      variant="floating" 
+                      inputString={inputString}
+                      handleInputChange={handleInputChange}
+                      handleStepClick={handleStepClick}
+                      startStepDisabled={startStepDisabled}
+                      currentSimIndex={currentSimIndex}
+                      runFullSimulation={runFullSimulation}
+                      runDisabled={runDisabled}
+                      resetSimulation={resetSimulation}
+                      stepMode={stepMode}
+                      setStepMode={setStepMode}
+                      autoStepSeconds={autoStepSeconds}
+                      setAutoStepSeconds={setAutoStepSeconds}
+                      isAccepted={isAccepted}
+                      simComplete={simComplete}
+                    />
+                  </div>
+                  
+                  {/* Resize Handle */}
+                  <div
+                    onPointerDown={handleResizeStart}
+                    className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center group"
+                  >
+                    <div className="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full group-hover:bg-blue-500 transition-colors" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {/* Visual Legend */}
+            <div className="absolute bottom-4 left-4 flex gap-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-md p-2 rounded-lg border border-gray-200 dark:border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-500 shadow-sm pointer-events-none transition-colors duration-300">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full border border-emerald-500" />
+                Start
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full border border-gray-400 dark:border-gray-600 flex items-center justify-center">
+                  <span className="w-1 h-1 rounded-full border border-gray-400" />
+                </span>
+                Accept
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                Current
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                Active
+              </div>
+            </div>
+          </div>
 
-                    {currentSimIndex === inputString.length && (
-                      <motion.div 
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold ${
-                          isAccepted ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                        }`}
-                      >
-                        {isAccepted ? (
-                          <>
-                            <CheckCircle2 size={18} />
-                            Accepted
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={18} />
-                            Rejected
-                          </>
-                        )}
-                      </motion.div>
-                    )}
-                  </motion.div>
+          {/* Bottom Panel */}
+          <motion.div 
+            initial={false}
+            animate={{ height: isBottomCollapsed ? 40 : 240 }}
+            className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col transition-colors duration-300 overflow-hidden shrink-0 group"
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 transition-colors duration-300 shrink-0">
+              <div className="flex">
+                <button 
+                  onClick={() => {
+                    setActiveTab('transitions');
+                    setIsBottomCollapsed(false);
+                  }}
+                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'transitions' && !isBottomCollapsed ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+                >
+                  Table
+                </button>
+                <button 
+                  onClick={() => {
+                    setActiveTab('simulation');
+                    setIsBottomCollapsed(false);
+                  }}
+                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'simulation' && !isBottomCollapsed ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+                >
+                  Simulation
+                </button>
+              </div>
+              
+              <button 
+                onClick={() => setIsBottomCollapsed(!isBottomCollapsed)}
+                className="p-1 px-3 text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-2"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isBottomCollapsed ? 'Expand' : 'Collapse'}
+                </span>
+                {isBottomCollapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 transition-colors duration-300">
+              <AnimatePresence mode="wait">
+                {!isBottomCollapsed && (
+                  activeTab === 'transitions' ? (
+                    <motion.div 
+                      key="transitions"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="max-w-4xl"
+                    >
+                      <table className="w-full border-collapse text-[11px] transition-colors duration-300">
+                        <thead>
+                          <tr>
+                            <th className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 text-left text-[9px] font-bold text-gray-400 uppercase tracking-widest transition-colors duration-300">
+                              δ(q, σ)
+                            </th>
+                            {alphabet.map(char => (
+                              <th key={char} className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 text-center font-mono font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap transition-colors duration-300">
+                                {char}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {states.map(s => (
+                            <tr key={s}>
+                              <td className="p-2 border border-gray-100 dark:border-gray-700 font-mono font-bold text-xs bg-gray-50/50 dark:bg-gray-900/30 transition-colors duration-300">
+                                {s}
+                              </td>
+                              {alphabet.map(char => (
+                                <td key={char} className="p-1 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+                                  <select
+                                    value={transitions[s]?.[char] || states[0]}
+                                    onChange={(e) => handleTransitionChange(s, char, e.target.value)}
+                                    className="w-full bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
+                                  >
+                                    {states.map(target => (
+                                      <option key={target} value={target}>{target}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="simulation"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <SimulationControls 
+                        variant="panel" 
+                        inputString={inputString}
+                        handleInputChange={handleInputChange}
+                        handleStepClick={handleStepClick}
+                        startStepDisabled={startStepDisabled}
+                        currentSimIndex={currentSimIndex}
+                        runFullSimulation={runFullSimulation}
+                        runDisabled={runDisabled}
+                        resetSimulation={resetSimulation}
+                        stepMode={stepMode}
+                        setStepMode={setStepMode}
+                        autoStepSeconds={autoStepSeconds}
+                        setAutoStepSeconds={setAutoStepSeconds}
+                        isAccepted={isAccepted}
+                        simComplete={simComplete}
+                      />
+                    </motion.div>
+                  )
                 )}
               </AnimatePresence>
             </div>
-          </section>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="max-w-7xl mx-auto p-6 text-center text-gray-400 text-xs border-t border-gray-100 mt-12">
-        <p>© 2026 Automata Visualizer • Formal Languages & Automata Theory</p>
-      </footer>
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 }
