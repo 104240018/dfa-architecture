@@ -48,9 +48,9 @@ const ALPHABET_CHARS = 'abcdefghijklmnopqrstuvwxyz'.split('');
 // --- Components ---
 
 // --- Sub-components ---
-
 interface SimulationControlsProps {
   variant: 'panel' | 'floating';
+  // Step mode props
   inputString: string;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleStepClick: () => Promise<void>;
@@ -65,9 +65,16 @@ interface SimulationControlsProps {
   setAutoStepSeconds: (val: number) => void;
   isAccepted: boolean;
   simComplete: boolean;
+  // NEW: Multiple input mode props
+  simulationMode: 'step' | 'fast';
+  setSimulationMode: (mode: 'step' | 'fast') => void;
+  fastInput: string;
+  setFastInput: (val: string) => void;
+  handleFastCheck: () => void;
+  fastResults: Array<{ input: string; finalState: string; accepted: boolean }>;
 }
 
-const SimulationControls = ({ 
+const SimulationControls = ({
   variant,
   inputString,
   handleInputChange,
@@ -82,120 +89,255 @@ const SimulationControls = ({
   autoStepSeconds,
   setAutoStepSeconds,
   isAccepted,
-  simComplete
+  simComplete,
+  simulationMode,
+  setSimulationMode,
+  fastInput,
+  setFastInput,
+  handleFastCheck,
+  fastResults,
 }: SimulationControlsProps) => {
   const isFloating = variant === 'floating';
-  
+
   return (
     <div className={`${isFloating ? 'p-4 space-y-3' : 'space-y-4'}`}>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className={`relative flex-1 ${isFloating ? 'max-w-[200px]' : 'max-w-md'}`}>
-          <input 
-            type="text"
-            value={inputString}
-            onChange={handleInputChange}
-            placeholder="Input string..."
-            className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
-          />
-        </div>
-        
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={() => void handleStepClick()}
-            disabled={startStepDisabled}
-            className="flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white font-bold rounded-lg transition-all text-xs shadow-lg shadow-blue-500/20 whitespace-nowrap"
-          >
-            {currentSimIndex === -1 ? 'Start' : 'Step'}
-          </button>
-          <button 
-            onClick={runFullSimulation}
-            disabled={runDisabled}
-            className="h-10 px-4 border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:border-gray-400 disabled:text-gray-400 font-bold rounded-lg transition-all text-xs"
-          >
-            Run
-          </button>
-          <button 
-            onClick={resetSimulation}
-            className="h-10 px-4 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-bold rounded-lg transition-all text-xs"
-          >
-            Reset
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 ml-auto bg-gray-50 dark:bg-gray-900 p-1 rounded-lg transition-colors duration-300">
-          <button 
-            onClick={() => setStepMode('manual')}
-            className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${stepMode === 'manual' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
-          >
-            Manual
-          </button>
-          <button 
-            onClick={() => setStepMode('auto')}
-            className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${stepMode === 'auto' ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
-          >
-            Auto
-          </button>
-        </div>
-
-        {stepMode === 'auto' && (
-          <div className="flex items-center gap-2 ml-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Delay
-            </span>
-            <input
-              type="number"
-              min="0.2"
-              step="0.1"
-              value={autoStepSeconds}
-              onChange={(e) => setAutoStepSeconds(Math.max(0.2, Number(e.target.value)))}
-              className="w-16 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
-            />
-            <span className="text-[10px] text-gray-400">s</span>
-          </div>
-        )}
+      {/* Mode Toggle Buttons - always visible */}
+      <div className="flex items-center gap-3 mb-3">
+        <button
+          onClick={() => setSimulationMode('step')}
+          className={`px-4 py-2 text-xs font-bold uppercase rounded-lg transition-all ${
+            simulationMode === 'step'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+          }`}
+        >
+          Step Simulation
+        </button>
+        <button
+          onClick={() => setSimulationMode('fast')}
+          className={`px-4 py-2 text-xs font-bold uppercase rounded-lg transition-all ${
+            simulationMode === 'fast'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+          }`}
+        >
+          Multiple Input
+        </button>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* String Visualizer */}
-        <div className="flex-1 flex gap-1 font-mono overflow-x-auto pb-2 scrollbar-hide">
-          {inputString.split('').map((char, i) => (
-            <div 
-              key={i}
-              className={`w-8 h-10 flex items-center justify-center rounded border-b-2 text-base transition-all shrink-0 ${
-                i === currentSimIndex ? 'bg-blue-600 text-white border-blue-800 scale-110 shadow-lg' : 
-                i < currentSimIndex ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700' : 
-                'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-100 dark:border-gray-800'
+      {/* STEP MODE (full original functionality) */}
+      {simulationMode === 'step' && (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`relative flex-1 ${isFloating ? 'max-w-[200px]' : 'max-w-md'}`}>
+              <input
+                type="text"
+                value={inputString}
+                onChange={handleInputChange}
+                placeholder="Input string..."
+                className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => void handleStepClick()}
+                disabled={startStepDisabled}
+                className="flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white font-bold rounded-lg transition-all text-xs shadow-lg shadow-blue-500/20 whitespace-nowrap"
+              >
+                {currentSimIndex === -1 ? 'Start' : 'Step'}
+              </button>
+              <button
+                onClick={runFullSimulation}
+                disabled={runDisabled}
+                className="h-10 px-4 border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:border-gray-400 disabled:text-gray-400 font-bold rounded-lg transition-all text-xs"
+              >
+                Run
+              </button>
+              <button
+                onClick={resetSimulation}
+                className="h-10 px-4 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-bold rounded-lg transition-all text-xs"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 ml-auto bg-gray-50 dark:bg-gray-900 p-1 rounded-lg transition-colors duration-300">
+              <button
+                onClick={() => setStepMode('manual')}
+                className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${
+                  stepMode === 'manual'
+                    ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400'
+                    : 'text-gray-400'
+                }`}
+              >
+                Manual
+              </button>
+              <button
+                onClick={() => setStepMode('auto')}
+                className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${
+                  stepMode === 'auto'
+                    ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-600 dark:text-blue-400'
+                    : 'text-gray-400'
+                }`}
+              >
+                Auto
+              </button>
+            </div>
+
+            {stepMode === 'auto' && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Delay
+                </span>
+                <input
+                  type="number"
+                  min="0.2"
+                  step="0.1"
+                  value={autoStepSeconds}
+                  onChange={(e) => setAutoStepSeconds(Math.max(0.2, Number(e.target.value)))}
+                  className="w-16 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none transition-colors duration-300 dark:text-white"
+                />
+                <span className="text-[10px] text-gray-400">s</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* String Visualizer */}
+            <div className="flex-1 flex gap-1 font-mono overflow-x-auto pb-2 scrollbar-hide">
+              {inputString.split('').map((char, i) => (
+                <div
+                  key={i}
+                  className={`w-8 h-10 flex items-center justify-center rounded border-b-2 text-base transition-all shrink-0 ${
+                    i === currentSimIndex
+                      ? 'bg-blue-600 text-white border-blue-800 scale-110 shadow-lg'
+                      : i < currentSimIndex
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700'
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-100 dark:border-gray-800'
+                  }`}
+                >
+                  {char}
+                </div>
+              ))}
+              {inputString.length === 0 && (
+                <span className="text-gray-400 dark:text-gray-500 text-xs italic">
+                  Enter a string to test
+                </span>
+              )}
+            </div>
+
+            {/* Status */}
+            <div
+              className={`min-w-[120px] h-12 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 transition-colors duration-300 ${
+                isFloating ? 'bg-white/50 dark:bg-gray-950/50' : ''
               }`}
             >
-              {char}
+              {simComplete ? (
+                isAccepted ? (
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">
+                    <CheckCircle2 size={16} /> ACCEPT
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-widest">
+                    <XCircle size={16} /> REJECT
+                  </div>
+                )
+              ) : (
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                  {currentSimIndex === -1
+                    ? 'Ready'
+                    : `Step ${currentSimIndex + 1}/${inputString.length}`}
+                </span>
+              )}
             </div>
-          ))}
-          {inputString.length === 0 && <span className="text-gray-400 dark:text-gray-500 text-xs italic">Enter a string to test</span>}
-        </div>
+          </div>
+        </>
+      )}
 
-        {/* Status */}
-        <div className={`min-w-[120px] h-12 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 transition-colors duration-300 ${isFloating ? 'bg-white/50 dark:bg-gray-950/50' : ''}`}>
-          {simComplete ? (
-            isAccepted ? (
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">
-                <CheckCircle2 size={16} /> ACCEPT
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-widest">
-                <XCircle size={16} /> REJECT
-              </div>
-            )
-          ) : (
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-              {currentSimIndex === -1 ? 'Ready' : `Step ${currentSimIndex + 1}/${inputString.length}`}
-            </span>
+      {/* FAST MODE (Multiple Input) */}
+      {simulationMode === 'fast' && (
+        <div className="space-y-4">
+          <textarea
+            value={fastInput}
+            onChange={(e) => setFastInput(e.target.value)}
+            rows={6}
+            className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-3 font-mono text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-colors duration-300 dark:text-white"
+            placeholder="Enter multiple strings, one per line:\nabba\nabab\nbbb"
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleFastCheck}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-all text-xs shadow-lg shadow-purple-500/20"
+            >
+              Run All
+            </button>
+            <button
+              onClick={() => {
+                setFastInput('');
+                // Also clear results – handleFastCheck should reset results when empty
+                // but we'll call a separate clear function if needed
+              }}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-bold rounded-lg transition-all text-xs"
+            >
+              Clear
+            </button>
+          </div>
+
+          {fastResults.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 px-3 text-gray-500 font-bold uppercase tracking-wider">
+                      Input
+                    </th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-bold uppercase tracking-wider">
+                      Final State
+                    </th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-bold uppercase tracking-wider">
+                      Result
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fastResults.map((r, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+                    >
+                      <td className="py-2 px-3 font-mono">{r.input}</td>
+                      <td className="py-2 px-3 font-mono text-gray-600 dark:text-gray-400">
+                        {r.finalState}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={`inline-flex items-center gap-1 text-xs font-bold ${
+                            r.accepted
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
+                          {r.accepted ? (
+                            <CheckCircle2 size={12} />
+                          ) : (
+                            <XCircle size={12} />
+                          )}
+                          {r.accepted ? 'ACCEPT' : 'REJECT'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
-
 export default function App() {
   // --- State ---
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -228,10 +370,22 @@ export default function App() {
   const [currentSimIndex, setCurrentSimIndex] = useState(-1); // -1 means not started
   const [simState, setSimState] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Main simulation mode:
+  // - 'step' = animated simulation
+  // - 'fast' = instant acceptance checking
+  const [simulationMode, setSimulationMode] = useState<'step' | 'fast'>('step');
+
   /** manual: click Step for each symbol; auto: pause then run animated steps */
   const [stepMode, setStepMode] = useState<'manual' | 'auto'>('manual');
   /** Seconds between finished transitions in auto mode (animation time is extra). */
   const [autoStepSeconds, setAutoStepSeconds] = useState(1.5);
+
+
+  const [fastInput, setFastInput] = useState('');
+  const [fastResults, setFastResults] = useState<
+    { input: string; finalState: string; accepted: boolean }[]
+  >([]);
   const [activeEdge, setActiveEdge] = useState<{ from: string; to: string; char: string } | null>(null);
   const [arrivalState, setArrivalState] = useState<string | null>(null);
   const [isStepAnimating, setIsStepAnimating] = useState(false);
@@ -385,6 +539,22 @@ export default function App() {
     return Array.from(new Set(raw)).slice(0, MAX_ALPHABET);
   }, [alphabetInput]);
 
+  const formalDefinition = useMemo(() => {
+    return {
+      Q: states,
+      Sigma: alphabet,
+      q0: startState,
+      F: Array.from(acceptStates),
+      delta: states.flatMap((from) =>
+        alphabet.map((char) => ({
+          from,
+          char,
+          to: transitions[from]?.[char] ?? states[0],
+        }))
+      ),
+    };
+  }, [states, alphabet, startState, acceptStates, transitions]);
+
   const handleTransitionsSync = useCallback((prev: Transitions, currentStates: string[], currentAlphabet: string[]) => {
     const next: Transitions = {};
     currentStates.forEach(s => {
@@ -467,6 +637,19 @@ export default function App() {
     setIsSimulating(true);
   };
 
+// Place this inside your App component, before handleFastCheck
+const simulateDFA = (input: string) => {
+  let current = startState;
+  for (const char of input) {
+    const next = transitions[current]?.[char];
+    if (!next) {
+      return { accepted: false, finalState: current };
+    }
+    current = next;
+  }
+  return { accepted: acceptStates.has(current), finalState: current };
+};
+
   const EDGE_MS = 550;
   const ARRIVAL_MS = 750;
 
@@ -517,15 +700,38 @@ export default function App() {
     setActiveEdge(null);
     setArrivalState(null);
     setIsStepAnimating(false);
-    let currentState = startState;
-    for (let i = 0; i < inputString.length; i++) {
-      const char = inputString[i];
-      currentState = transitions[currentState][char];
-    }
-    setSimState(currentState);
+
+    const result = simulateDFA(inputString);
+
+    setSimState(result.finalState);
     setCurrentSimIndex(inputString.length);
     setIsSimulating(false);
   };
+
+const handleFastCheck = () => {
+  const inputs = fastInput
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const results = inputs.map(rawInput => {
+    // Filter only alphabet characters
+    const filtered = rawInput
+      .toLowerCase()
+      .split('')
+      .filter(char => alphabet.includes(char))
+      .join('');
+
+    const result = simulateDFA(filtered);
+    return {
+      input: filtered,
+      finalState: result.finalState,
+      accepted: result.accepted,
+    };
+  });
+
+  setFastResults(results);
+};
 
   useEffect(() => {
     if (stepMode !== 'auto') return;
@@ -620,8 +826,9 @@ export default function App() {
         .attr("viewBox", "0 -5 10 10")
         .attr("refX", 10)
         .attr("refY", 0)
-        .attr("markerWidth", 10)
-        .attr("markerHeight", 10)
+        .attr("markerWidth", 14)
+        .attr("markerHeight", 14)
+        .attr("markerUnits", "userSpaceOnUse")
         .attr("orient", "auto")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5");
@@ -631,8 +838,9 @@ export default function App() {
         .attr("viewBox", "0 -5 10 10")
         .attr("refX", 10)
         .attr("refY", 0)
-        .attr("markerWidth", 10)
-        .attr("markerHeight", 10)
+        .attr("markerWidth", 18)
+        .attr("markerHeight", 18)
+        .attr("markerUnits", "userSpaceOnUse")
         .attr("orient", "auto")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
@@ -956,10 +1164,6 @@ export default function App() {
             </div>
           </button>
           <div className="h-6 w-px bg-gray-200 dark:bg-gray-800 mx-2" />
-          <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">Engine Active</span>
-          </div>
         </div>
       </header>
 
@@ -1067,6 +1271,60 @@ export default function App() {
                 </table>
               </div>
             </section>
+            {/* Formal Definition */}
+            <section className="space-y-4 pt-2">
+              <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                <Info size={16} />
+                <h2 className="text-xs font-bold uppercase tracking-wider">
+                  Formal Definition
+                </h2>
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm transition-colors duration-300 max-h-72 overflow-y-auto">
+                <div className="space-y-3 text-[11px] font-mono">
+                  <div>
+                    <span className="font-bold">M</span> = (Q, Σ, δ, q₀, F)
+                  </div>
+
+                  <div>
+                    <span className="font-bold">Q</span> = {'{'}
+                    {formalDefinition.Q.join(', ')}
+                    {'}'}
+                  </div>
+
+                  <div>
+                    <span className="font-bold">Σ</span> = {'{'}
+                    {formalDefinition.Sigma.join(', ')}
+                    {'}'}
+                  </div>
+
+                  <div>
+                    <span className="font-bold">q₀</span> = {formalDefinition.q0}
+                  </div>
+
+                  <div>
+                    <span className="font-bold">F</span> = {'{'}
+                    {formalDefinition.F.join(', ')}
+                    {'}'}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="font-bold mb-1">δ transitions</div>
+
+                    <div className="space-y-1">
+                      {formalDefinition.delta.map((t, idx) => (
+                        <div
+                          key={idx}
+                          className="text-gray-600 dark:text-gray-300"
+                        >
+                          δ({t.from}, {t.char}) = {t.to}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>            
           </div>
         </motion.aside>
 
@@ -1133,23 +1391,30 @@ export default function App() {
                     </button>
                   </div>
                   <div className="flex-1 overflow-auto">
-                    <SimulationControls 
-                      variant="floating" 
-                      inputString={inputString}
-                      handleInputChange={handleInputChange}
-                      handleStepClick={handleStepClick}
-                      startStepDisabled={startStepDisabled}
-                      currentSimIndex={currentSimIndex}
-                      runFullSimulation={runFullSimulation}
-                      runDisabled={runDisabled}
-                      resetSimulation={resetSimulation}
-                      stepMode={stepMode}
-                      setStepMode={setStepMode}
-                      autoStepSeconds={autoStepSeconds}
-                      setAutoStepSeconds={setAutoStepSeconds}
-                      isAccepted={isAccepted}
-                      simComplete={simComplete}
-                    />
+                  <SimulationControls
+                    variant="floating"
+                    inputString={inputString}
+                    handleInputChange={handleInputChange}
+                    handleStepClick={handleStepClick}
+                    startStepDisabled={startStepDisabled}
+                    currentSimIndex={currentSimIndex}
+                    runFullSimulation={runFullSimulation}
+                    runDisabled={runDisabled}
+                    resetSimulation={resetSimulation}
+                    stepMode={stepMode}
+                    setStepMode={setStepMode}
+                    autoStepSeconds={autoStepSeconds}
+                    setAutoStepSeconds={setAutoStepSeconds}
+                    isAccepted={isAccepted}
+                    simComplete={simComplete}
+
+                    simulationMode={simulationMode}
+                    setSimulationMode={setSimulationMode}
+                    fastInput={fastInput}
+                    setFastInput={setFastInput}
+                    handleFastCheck={handleFastCheck}
+                    fastResults={fastResults}
+                  />
                   </div>
                   
                   {/* Resize Handle */}
@@ -1280,23 +1545,30 @@ export default function App() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                     >
-                      <SimulationControls 
-                        variant="panel" 
-                        inputString={inputString}
-                        handleInputChange={handleInputChange}
-                        handleStepClick={handleStepClick}
-                        startStepDisabled={startStepDisabled}
-                        currentSimIndex={currentSimIndex}
-                        runFullSimulation={runFullSimulation}
-                        runDisabled={runDisabled}
-                        resetSimulation={resetSimulation}
-                        stepMode={stepMode}
-                        setStepMode={setStepMode}
-                        autoStepSeconds={autoStepSeconds}
-                        setAutoStepSeconds={setAutoStepSeconds}
-                        isAccepted={isAccepted}
-                        simComplete={simComplete}
-                      />
+                    <SimulationControls
+                      variant="panel"
+                      inputString={inputString}
+                      handleInputChange={handleInputChange}
+                      handleStepClick={handleStepClick}
+                      startStepDisabled={startStepDisabled}
+                      currentSimIndex={currentSimIndex}
+                      runFullSimulation={runFullSimulation}
+                      runDisabled={runDisabled}
+                      resetSimulation={resetSimulation}
+                      stepMode={stepMode}
+                      setStepMode={setStepMode}
+                      autoStepSeconds={autoStepSeconds}
+                      setAutoStepSeconds={setAutoStepSeconds}
+                      isAccepted={isAccepted}
+                      simComplete={simComplete}
+
+                      simulationMode={simulationMode}
+                      setSimulationMode={setSimulationMode}
+                      fastInput={fastInput}
+                      setFastInput={setFastInput}
+                      handleFastCheck={handleFastCheck}
+                      fastResults={fastResults}
+                    />
                     </motion.div>
                   )
                 )}
